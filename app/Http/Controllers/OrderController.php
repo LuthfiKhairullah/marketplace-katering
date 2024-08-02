@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DetailOrders;
+use App\Models\Menu;
 use App\Models\Orders;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,37 +28,36 @@ class OrderController extends Controller
 
     public function add()
     {
-        return view('customer.order.add');
+        $list_menu = Menu::all();
+        return view('customer.order.add', [
+            'list_menu' => $list_menu
+        ]);
     }
 
     public function process_add(Request $request)
     {
         $request->validate([
-            'menu_name' => 'required|string',
-            'menu_description' => 'required|string',
-            'menu_picture' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-            'menu_price' => 'required|integer',
+            'order_delivery_date' => 'required|string',
         ]);
 
-        if ($request->hasFile('menu_picture')) {
-            $image = $request->file('menu_picture');
-            $folderPath = 'public/storage/menu_picture';
-            $no = 0;
-            do {
-                $imageName = time() . $no . '.' . $image->getClientOriginalExtension();
-                $image->storeAs($folderPath, $imageName);
-                $no++;
-            } while (Storage::exists($folderPath . '/' . $imageName) != true);
-            Orders::create([
-                'merchant_id' => Auth::id(),
-                'menu_name' => $request->input('menu_name'),
-                'menu_description' => $request->input('menu_description'),
-                'menu_picture' => $imageName,
-                'menu_price' => $request->input('menu_price'),
-            ]);
+        $order = Orders::create([
+            'customer_id' => Auth::id(),
+            'merchant_id' => $request->input('merchant_id'),
+            'order_invoice' => date('YmdHis'),
+            'order_delivery_date' => $request->input('order_delivery_date'),
+        ]);
 
-            return redirect()->route('merchant.menu')
-                ->with('success', 'Menu created successfully.');
+        for ($i = 0; $i < count($request->input('detail_order_name')); $i++) {
+            DetailOrders::create([
+                'order_id' => $order->id,
+                'detail_order_name' => $request->input('detail_order_name')[$i],
+                'detail_order_qty' => $request->input('detail_order_qty')[$i],
+                'detail_order_price' => $request->input('detail_order_price')[$i],
+                'detail_order_total_price' => $request->input('detail_order_total_price')[$i],
+            ]);
         }
+
+        return redirect()->route('order.edit')
+            ->with('success', 'Profile updated successfully.');
     }
 }
